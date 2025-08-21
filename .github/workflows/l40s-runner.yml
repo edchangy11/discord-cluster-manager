@@ -39,14 +39,15 @@ jobs:
     - name: Create input files
       shell: bash
       run: |
+        # Extract the payload content without printing it
         apt-get update && apt-get install -y jq
+        PAYLOAD=$(jq -r '.inputs.payload' $GITHUB_EVENT_PATH)
         
-        # Create a simple test payload for now
-        cat > payload.json <<'EOF'
-{"lang": "py", "mode": "test", "code": "def custom_kernel(input):\n    return input", "file_name": "test.py", "arch": "89"}
-EOF
+        # Apply mask to the extracted content
+        echo "::add-mask::$PAYLOAD"
         
-        echo "Created test payload.json"
+        # Now write to file (won't be logged since it's masked)
+        echo "$PAYLOAD" > payload.json
 
     - name: Install uv
       uses: astral-sh/setup-uv@v3
