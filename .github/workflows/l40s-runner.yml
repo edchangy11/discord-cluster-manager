@@ -39,37 +39,15 @@ jobs:
     - name: Create input files
       shell: bash
       run: |
-        apt-get update && apt-get install -y jq python3
+        # Extract the payload content without printing it
+        apt-get update && apt-get install -y jq
+        PAYLOAD=$(jq -r '.inputs.payload' $GITHUB_EVENT_PATH)
         
-        # Create a proper test payload using Python
-        python3 -c "
-import json
-import zlib
-import base64
-
-# Create test payload
-payload = {
-    'lang': 'py',
-    'mode': 'test',
-    'code': 'def custom_kernel(input):\\n    return input',
-    'file_name': 'test.py',
-    'arch': '89',
-    'test_timeout': 120,
-    'benchmark_timeout': 180,
-    'ranked_timeout': 300
-}
-
-# Compress and encode like the Discord bot does
-json_str = json.dumps(payload)
-compressed = zlib.compress(json_str.encode('utf-8'))
-encoded = base64.b64encode(compressed).decode('utf-8')
-
-# Write the encoded payload to payload.json as expected by github-runner.py
-with open('payload.json', 'w') as f:
-    f.write(encoded)
-
-print('Created test payload')
-"
+        # Apply mask to the extracted content
+        echo "::add-mask::$PAYLOAD"
+        
+        # Now write to file (won't be logged since it's masked)
+        echo "$PAYLOAD" > payload.json
 
     - name: Install uv
       uses: astral-sh/setup-uv@v3
