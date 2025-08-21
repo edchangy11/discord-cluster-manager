@@ -20,11 +20,11 @@ run-name: 'L40S Job - ${{ github.event.inputs.run_id }}'
 jobs:
   run:
     runs-on: [self-hosted, nvidia-l40s]
-    timeout-minutes: 30
+    timeout-minutes: 10
     container:
-      image: nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
+      image: nvidia/cuda:12.4.0-devel-ubuntu22.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -48,6 +48,11 @@ jobs:
         
         # Now write to file (won't be logged since it's masked)
         echo "$PAYLOAD" > payload.json
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
 
     - name: Setup Python environment
       shell: bash
