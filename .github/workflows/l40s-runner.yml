@@ -1,0 +1,65 @@
+# Create the workflow file
+name: L40S GPU Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run on'
+        required: true
+        default: 'main'
+      submission_id:
+        description: 'Submission ID'
+        required: true
+      user_code:
+        description: 'Base64 encoded user code'
+        required: true
+      file_name:
+        description: 'Submission file name'
+        required: true
+      task_config:
+        description: 'Base64 encoded task configuration'
+        required: true
+      mode:
+        description: 'Execution mode'
+        required: true
+        default: 'leaderboard'
+
+jobs:
+  run-kernel:
+    runs-on: [self-hosted, nvidia-l40s]
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch }}
+    
+    - name: Set up Python
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 install -r requirements.txt
+    
+    - name: Decode submission
+      run: |
+        echo "${{ github.event.inputs.user_code }}" | base64 -d > submission_file
+        echo "${{ github.event.inputs.task_config }}" | base64 -d > task_config.json
+    
+    - name: Run evaluation
+      run: |
+        python3 src/runners/github-runner.py \
+          --submission-file submission_file \
+          --file-name "${{ github.event.inputs.file_name }}" \
+          --task-config task_config.json \
+          --mode "${{ github.event.inputs.mode }}" \
+          --submission-id "${{ github.event.inputs.submission_id }}"
+    
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: results-${{ github.event.inputs.submission_id }}
+        path: |
+          results/
+          logs/
