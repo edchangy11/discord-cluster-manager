@@ -64,6 +64,10 @@ class GitHubLauncher(Launcher):
             selected_workflow = "nvidia_workflow.yml"
             gpu_vendor = "NVIDIA"
             requirements = NVIDIA_REQUIREMENTS
+        elif gpu_type.value == "L40S":
+            selected_workflow = "l40s-runner.yml"
+            gpu_vendor = "NVIDIA"
+            requirements = NVIDIA_REQUIREMENTS
         else:
             raise ValueError(f"Invalid GPU type: {gpu_type.value}")
 
@@ -194,6 +198,8 @@ class GitHubRun:
             expected_run_name = f"AMD Job - {run_id}"
         elif self.workflow_file == "nvidia_workflow.yml":
             expected_run_name = f"NVIDIA Job - {run_id}"
+        elif self.workflow_file == "l40s-runner.yml":
+            expected_run_name = f"L40S Job - {run_id}"
         else:
             raise ValueError(f"Unknown workflow file: {self.workflow_file}")
 

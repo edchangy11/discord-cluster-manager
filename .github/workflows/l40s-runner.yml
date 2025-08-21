@@ -1,65 +1,87 @@
-# Create the workflow file
-name: L40S GPU Runner
-
+name: L40S PyTorch/CUDA Job
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: 'Branch to run on'
+      run_id:
+        description: 'Unique identifier for this run'
         required: true
-        default: 'main'
-      submission_id:
-        description: 'Submission ID'
+        type: string
+      payload:
+        description: 'Content of the user submission, as json string'
         required: true
-      user_code:
-        description: 'Base64 encoded user code'
-        required: true
-      file_name:
-        description: 'Submission file name'
-        required: true
-      task_config:
-        description: 'Base64 encoded task configuration'
-        required: true
-      mode:
-        description: 'Execution mode'
-        required: true
-        default: 'leaderboard'
+        type: string
+      requirements:
+        description: 'Contents for a requirements.txt file'
+        required: false
+        type: string
+
+run-name: 'L40S Job - ${{ github.event.inputs.run_id }}'
 
 jobs:
-  run-kernel:
+  run:
     runs-on: [self-hosted, nvidia-l40s]
     timeout-minutes: 30
-    
+    container:
+      image: nvidia/cuda:12.8-devel-ubuntu24.04
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
-        ref: ${{ github.event.inputs.branch }}
-    
-    - name: Set up Python
+        python-version: '3.10'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Create input files
+      shell: bash
       run: |
-        python3 -m pip install --upgrade pip
-        pip3 install -r requirements.txt
-    
-    - name: Decode submission
+        # Extract the payload content without printing it
+        apt-get update && apt-get install -y jq
+        PAYLOAD=$(jq -r '.inputs.payload' $GITHUB_EVENT_PATH)
+        
+        # Apply mask to the extracted content
+        echo "::add-mask::$PAYLOAD"
+        
+        # Now write to file (won't be logged since it's masked)
+        echo "$PAYLOAD" > payload.json
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Setup Python environment
+      shell: bash
       run: |
-        echo "${{ github.event.inputs.user_code }}" | base64 -d > submission_file
-        echo "${{ github.event.inputs.task_config }}" | base64 -d > task_config.json
-    
-    - name: Run evaluation
+        uv venv .venv
+        echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+        echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
+        if [[ -n "${{ github.event.inputs.requirements }}" ]]; then
+          cat > "requirements.txt" <<'EOL'
+          ${{ github.event.inputs.requirements }}
+        EOL
+        uv pip install -r "requirements.txt"
+        fi
+        uv pip install -e .
+
+    - name: Run script
+      shell: bash
       run: |
-        python3 src/runners/github-runner.py \
-          --submission-file submission_file \
-          --file-name "${{ github.event.inputs.file_name }}" \
-          --task-config task_config.json \
-          --mode "${{ github.event.inputs.mode }}" \
-          --submission-id "${{ github.event.inputs.submission_id }}"
-    
-    - name: Upload results
+        python src/runners/github-runner.py
+        cat result.json  # Debug: show output
+
+    - name: Upload training artifacts
+      uses: actions/upload-artifact@v4
       if: always()
-      uses: actions/upload-artifact@v3
       with:
-        name: results-${{ github.event.inputs.submission_id }}
+        name: run-result
         path: |
-          results/
-          logs/
+          result.json
+
+    env:
+      CUDA_VISIBLE_DEVICES: 0

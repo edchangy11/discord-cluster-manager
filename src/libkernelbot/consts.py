@@ -20,6 +20,7 @@ class GitHubGPU(Enum):
     NVIDIA = "NVIDIA"
     MI300 = "MI300"
     MI250 = "MI250"
+    L40S = "L40S"
 
 
 class ModalGPU(Enum):
@@ -28,7 +29,6 @@ class ModalGPU(Enum):
     A100 = "A100"
     H100 = "H100"
     B200 = "B200"
-    L40S = "L40S"
 
 @dataclasses.dataclass
 class GPU:
