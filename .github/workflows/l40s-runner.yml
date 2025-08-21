@@ -21,6 +21,8 @@ jobs:
   run:
     runs-on: [self-hosted, nvidia-l40s]
     timeout-minutes: 30
+    container:
+      image: nvidia/cuda:12.8-devel-ubuntu24.04
     steps:
     - uses: actions/checkout@v4
 
@@ -38,6 +40,7 @@ jobs:
       shell: bash
       run: |
         # Extract the payload content without printing it
+        apt-get update && apt-get install -y jq
         PAYLOAD=$(jq -r '.inputs.payload' $GITHUB_EVENT_PATH)
         
         # Apply mask to the extracted content
