@@ -1,0 +1,68 @@
+name: L40S CLI Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-cli:
+    runs-on: [self-hosted, nvidia-l40s]
+    timeout-minutes: 10
+    container:
+      image: nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Setup Python environment
+        run: |
+          uv venv .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+          uv pip install -e .
+
+      - name: Test basic functionality
+        shell: bash
+        run: |
+          echo "Testing CUDA availability..."
+          nvidia-smi
+          echo "Testing Python installation..."
+          python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
+          echo "✅ L40S runner working!"
+
+      - name: Test Hello World kernel
+        shell: bash
+        run: |
+          echo "Testing Hello World kernel..."
+          cd examples/hello_world_py
+          python -c "
+from task import input_t, output_t
+from submission import custom_kernel
+from reference import reference_kernel
+
+# Test the kernel
+test_input = 'GitHub Actions Test'
+result = custom_kernel(test_input)
+expected = reference_kernel(test_input)
+
+print(f'Input: {test_input}')
+print(f'Result: {result}')
+print(f'Expected: {expected}')
+
+if result == expected:
+    print('✅ Hello World kernel test passed!')
+else:
+    print('❌ Hello World kernel test failed!')
+    exit(1)
+"
+
+    env:
+      CUDA_VISIBLE_DEVICES: 0
